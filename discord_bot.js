@@ -159,48 +159,9 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
     }
-
-    if (interaction.isButton()) {
-        const pollId = interaction.message.id;
-        if (!activePolls.has(pollId)) return;
-
-        const pollData = activePolls.get(pollId);
-        const userId = interaction.user.id;
-
-        if (pollData.votes.has(userId)) {
-            return interaction.reply({ content: "⚠️ You have already voted!", ephemeral: true });
-        }
-
-        pollData.votes.set(userId, interaction.customId);
-
-        const totalVotes = pollData.votes.size;
-        await interaction.reply({ content: `🗳️ Vote counted! Total votes: ${totalVotes}`, ephemeral: true });
-    }
 });
-
-// 📢 Function to send a poll
-async function sendPoll(channel) {
-    const pollQuestion = "📢 **Vote to ban a member!**";
-    const options = ["Yes", "No", "Let Them Duel!"];
-
-    const buttons = options.map((option, index) =>
-        new ButtonBuilder()
-            .setCustomId(`poll_${index}`)
-            .setLabel(option)
-            .setStyle(ButtonStyle.Primary)
-    );
-
-    const row = new ActionRowBuilder().addComponents(buttons);
-    const pollMessage = await channel.send({ content: pollQuestion, components: [row] });
-
-    console.log("✅ Poll sent successfully!");
-    activePolls.set(pollMessage.id, { votes: new Collection(), options });
-
-    setTimeout(async () => {
-        await endPoll(pollMessage);
-    }, 120000);
-}
 
 // 🚀 Login the bot
 client.login(process.env.DISCORD_BOT_TOKEN);
 export { client };
+

@@ -203,3 +203,4 @@ async function sendPoll(channel) {
 
 // 🚀 Login the bot
 client.login(process.env.DISCORD_BOT_TOKEN);
+export { client };

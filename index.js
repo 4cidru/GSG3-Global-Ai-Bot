@@ -5,6 +5,7 @@ import expressWs from 'express-ws';
 import {job} from './keep_alive.js';
 import {OpenAIOperations} from './openai_operations.js';
 import {TwitchBot} from './twitch_bot.js';
+import { client } from './discord_bot.js';
 
 // Safe Search Service
 import { checkSafeSearch } from "./safeSearch.js";

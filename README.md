@@ -6,9 +6,4 @@ It considers a context file for every message so you can give it background info
 
 You can choose if you want it to run in prompt mode (without context of previous messages) or in chat mode (with context of previous messages).
 
-# How to use
 
-This bot is integrated into the Digital Trove Community discord, SeeTrick, RichardWaffles, & Tazcid Twitch Channels, and has backend connection with multiple minecraft and counterstrike servers to assist with oversight
-maintenance, and other integrations.
-
-Refer to each channel for proper prompts and commands.

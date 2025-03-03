@@ -10,6 +10,7 @@ import {
 import dotenv from 'dotenv';
 import { OpenAIOperations } from './openai_operations.js';
 import { SlashCommandBuilder } from 'discord.js';
+import { checkSafeSearch } from "./safeSearch.js";
 
 dotenv.config();
 

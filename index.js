@@ -6,6 +6,21 @@ import {job} from './keep_alive.js';
 import {OpenAIOperations} from './openai_operations.js';
 import {TwitchBot} from './twitch_bot.js';
 
+// Safe Search Service
+import { checkSafeSearch } from "./safeSearch.js";
+
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return;
+    
+    const args = message.content.split(" ");
+    const command = args.shift().toLowerCase();
+
+    if (command === "!ss" && args.length > 0) {
+        const url = args[0];
+        const result = await checkSafeSearch(url);
+        message.reply(result);
+    }
+});
 // Start keep alive cron job
 job.start();
 console.log(process.env);

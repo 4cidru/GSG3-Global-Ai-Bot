@@ -1,3 +1,4 @@
+import { Client, GatewayIntentBits } from "discord.js";
 import express from 'express';
 import fs from 'fs';
 import ws from 'ws';
@@ -249,7 +250,7 @@ function handleMessage(username, message) {
     }
 
     if (!verifiedUsers[username]) {
-        return "You must type !agree after reading the rules to use the bot.";
+        return "You must type !agree after reading and agreeing to the rules to use the bot.";
     }
 
     return `Processing command: ${message}`;

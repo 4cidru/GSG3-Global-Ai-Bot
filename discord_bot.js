@@ -80,9 +80,9 @@ client.on('messageCreate', async (message) => {
     const content = message.content.trim().toLowerCase();
 
     // 🔹 OpenAI Chat Response
-    if (content.startsWith('!')) {
+    if (content.startsWith('%')) {
         const userMessage = content.substring(1).trim();
-        if (!userMessage) return message.reply('Please provide a message after `!`.');
+        if (!userMessage) return message.reply('Please provide a message after `%`.');
 
         try {
             const response = await openaiOps.make_openai_call(userMessage);
@@ -98,7 +98,7 @@ client.on('messageCreate', async (message) => {
         console.log(`💬 Support message detected from ${message.author.username}: ${message.content}`);
 
         let roleToMention = null;
-        if (message.content.includes("digitaltrove.net")) {
+        if (message.content.includes("shop")) {
             roleToMention = `<@&${ownerRoleId}> or <@&${managerRoleId}>`;
         } else if (message.content.includes("discord") || message.content.includes("game")) {
             roleToMention = `<@&${adminRoleId}>`;

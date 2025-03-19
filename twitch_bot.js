@@ -20,6 +20,9 @@ export class TwitchBot {
         });
         this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
+
+        // Initialize message handling
+        this.onMessage();
     }
 
     addChannel(channel) {
@@ -81,18 +84,47 @@ export class TwitchBot {
         }
     }
 
-    // 🔥 SafeSearch Implementation for Twitch Chat
+    // 🔥 SafeSearch & Command Handling for Twitch Chat
     onMessage() {
         this.client.on("message", async (channel, user, message, self) => {
             if (self) return; // Ignore bot messages
 
-            const args = message.split(" ");
+            console.log(`💬 Message received: ${message} from ${user.username}`);
+
+            const args = message.trim().split(/\s+/); // Split by spaces
             const command = args.shift().toLowerCase();
 
+            // ✅ Handle SafeSearch Command
             if (command === "!ss" && args.length > 0) {
                 const url = args[0];
                 const result = await checkSafeSearch(url);
                 this.say(channel, `@${user.username}, ${result}`);
+            }
+
+            // ✅ Handle Apply Command
+            else if (command === "!apply") {
+                this.say(channel, `@${user.username}, your application has been received!`);
+            }
+
+            // ✅ Handle Agreement System
+            else if (command === "!agree") {
+                if (!verifiedUsers[user.username]) {
+                    verifiedUsers[user.username] = true;
+                    saveVerifiedUsers();
+                    this.say(channel, `@${user.username}, you are now verified to use the chatbot!`);
+                } else {
+                    this.say(channel, `@${user.username}, you are already verified.`);
+                }
+            }
+
+            // ✅ Warn Users Who Haven't Agreed Yet
+            else if (!verifiedUsers[user.username]) {
+                this.say(channel, `@${user.username}, you must type !agree after reading and agreeing to the rules.`);
+            }
+
+            // ✅ Handle Unrecognized Commands
+            else {
+                this.say(channel, `@${user.username}, unknown command: ${command}`);
             }
         });
     }

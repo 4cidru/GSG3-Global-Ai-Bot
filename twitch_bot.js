@@ -1,7 +1,6 @@
 // Import dependencies
 import tmi from 'tmi.js';
 import { promises as fsPromises } from 'fs';
-import { checkSafeSearch } from "./safeSearch.js"; 
 import { checkGoogleSheet } from './google_sheets.js'; // Google Sheets Verification
 import { checkSafeSearch } from "./safeSearch.js"; // Import SafeSearch function
 import fs from 'fs'; // Ensure file handling is available

@@ -84,59 +84,60 @@ export class TwitchBot {
         })();
     }
 
-    // 🔥 Handles Messages & Commands
-    onMessage() {
-        this.client.on("message", async (channel, user, message, self) => {
-            if (self) return;
+onMessage() {
+    // ✅ Remove existing handlers before adding a new one
+    this.client.removeAllListeners("message");
 
-            const args = message.split(" ");
-            const command = args.shift().toLowerCase();
+    this.client.on("message", async (channel, user, message, self) => {
+        if (self) return;
 
-            // ✅ Standardize username format
-            const cleanUsername = user.username.replace(/^@/, "").trim().toLowerCase();
-            console.log(`💬 Received command: ${command} from ${cleanUsername}`);
+        const args = message.split(" ");
+        const command = args.shift().toLowerCase();
 
-            // ✅ Prevent Multiple Messages: Only allow !verify & !apply for unverified users
-            if (!this.verifiedUsers[cleanUsername] && command !== "!verify" && command !== "!apply") {
-                this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
-                return; // Stops further processing
+        // ✅ Standardize username format
+        const cleanUsername = user.username.replace(/^@/, "").trim().toLowerCase();
+        console.log(`💬 Received command: ${command} from ${cleanUsername}`);
+
+        // ✅ Prevent Multiple Messages: Only allow !verify & !apply for unverified users
+        if (!this.verifiedUsers[cleanUsername] && command !== "!verify" && command !== "!apply") {
+            this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
+            return; // ✅ Stops further processing
+        }
+
+        // ✅ SafeSearch Command (Only Verified Users)
+        if (command === "!ss" && args.length > 0) {
+            const url = args[0];
+            const result = await checkSafeSearch(url);
+            this.say(channel, `@${user.username}, ${result}`);
+            return; // ✅ Prevents multiple messages
+        }
+
+        // ✅ Verify Command (Check Google Sheets)
+        if (command === "!verify") {
+            if (this.verifiedUsers[cleanUsername]) {
+                this.say(channel, `@${user.username}, you are already verified! ✅`);
+                return;
             }
 
-            // ✅ SafeSearch Command (Only Verified Users)
-            if (command === "!ss" && args.length > 0) {
-                const url = args[0];
-                const result = await checkSafeSearch(url);
-                this.say(channel, `@${user.username}, ${result}`);
-                return; // ✅ Prevents multiple messages
+            console.log(`🔍 Checking Google Sheets for ${cleanUsername}...`);
+            const isVerified = await checkGoogleSheet(cleanUsername);
+            
+            if (isVerified) {
+                console.log(`✅ ${cleanUsername} is verified in Google Sheets.`);
+                this.verifiedUsers[cleanUsername] = true;
+                await this.saveVerifiedUsers();
+                this.say(channel, `@${user.username}, you have been verified! ✅`);
+            } else {
+                console.log(`❌ ${cleanUsername} NOT found in Google Sheets.`);
+                this.say(channel, `@${user.username}, you are not on the verified list. Apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
             }
+            return; // ✅ Stops further processing
+        }
 
-            // ✅ Verify Command (Check Google Sheets)
-            if (command === "!verify") {
-                if (this.verifiedUsers[cleanUsername]) {
-                    this.say(channel, `@${user.username}, you are already verified! ✅`);
-                    return;
-                }
-
-                console.log(`🔍 Checking Google Sheets for ${cleanUsername}...`);
-                const isVerified = await checkGoogleSheet(cleanUsername);
-                
-                if (isVerified) {
-                    console.log(`✅ ${cleanUsername} is verified in Google Sheets.`);
-                    this.verifiedUsers[cleanUsername] = true;
-                    await this.saveVerifiedUsers();
-                    this.say(channel, `@${user.username}, you have been verified! ✅`);
-                } else {
-                    console.log(`❌ ${cleanUsername} NOT found in Google Sheets.`);
-                    this.say(channel, `@${user.username}, you are not on the verified list. Apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-                }
-                return; // ✅ Stops further processing
-            }
-
-            // ✅ Apply Command (Prevent Echo)
-            if (command === "!apply") {
-                this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-                return; // ✅ Prevents multiple messages
-            }
-        });
-    }
+        // ✅ Apply Command (Prevent Echo)
+        if (command === "!apply") {
+            this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
+            return; // ✅ Prevents multiple messages
+        }
+    });
 }

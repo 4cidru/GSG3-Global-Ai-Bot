@@ -102,7 +102,7 @@ export class TwitchBot {
             }
 
             // ✅ OpenAI Chatbot
-            else if (message.startsWith("!")) {
+            else if (message.startsWith("#")) {
                 const query = message.slice(1).trim();
                 if (!query) return;
 

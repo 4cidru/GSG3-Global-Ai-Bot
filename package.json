@@ -9,14 +9,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/canyouseetrick/gsg3-global-ai-bot"
+    "url": "https://github.com/tazhmincwilliams/gsg3-global-ai-bot"
   },
   "author": "GSG 3ntertainment Ltd, Co.",
   "license": "ISC",
   "bugs": {
     "url": ""
   },
-  "homepage": "https://github.com/canyouseetrick/gsg3-global-ai-bot#readme",
+  "homepage": "https://github.com/tazhmincwilliams/gsg3-global-ai-bot#readme",
   "dependencies": {
     "cron": "^3.1.1",
     "ejs": "^3.1.9",
@@ -27,6 +27,7 @@
     "ws": "^8.14.2",
     "discord.js": "^14.11.0",
     "dotenv": "^16.3.1",
+    "googleapis": "^118.0.0",
     "axios": "^1.6.0"
   }
 }

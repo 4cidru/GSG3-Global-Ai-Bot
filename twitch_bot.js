@@ -1,9 +1,36 @@
-// Import tmi.js module
+// Import dependencies
 import tmi from 'tmi.js';
 import OpenAI from 'openai';
 import { promises as fsPromises } from 'fs';
 import { checkSafeSearch } from "./safeSearch.js"; // Import SafeSearch function
+import fs from 'fs'; // Ensure file handling is available
 
+// ✅ Define the verified users object & file path
+const verifiedUsersFile = 'verified_users.json';
+let verifiedUsers = {};
+
+// ✅ Load verified users from file safely
+if (fs.existsSync(verifiedUsersFile)) {
+    try {
+        const fileData = fs.readFileSync(verifiedUsersFile, 'utf8');
+        verifiedUsers = fileData.trim() ? JSON.parse(fileData) : {}; 
+    } catch (error) {
+        console.error("Error parsing verified_users.json:", error);
+        verifiedUsers = {}; 
+    }
+} else {
+    fs.writeFileSync(verifiedUsersFile, JSON.stringify({}, null, 2));
+}
+
+function saveVerifiedUsers() {
+    try {
+        fs.writeFileSync(verifiedUsersFile, JSON.stringify(verifiedUsers, null, 2));
+    } catch (error) {
+        console.error("Failed to save verified users:", error);
+    }
+}
+
+// ✅ TwitchBot Class
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
         this.channels = channels;
@@ -20,12 +47,6 @@ export class TwitchBot {
         });
         this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
-        
-        // 🔥 Prevent multiple event listeners
-        this.isMessageHandlerActive = false;
-
-        // Connect bot
-        this.connect();
     }
 
     addChannel(channel) {
@@ -40,12 +61,6 @@ export class TwitchBot {
             try {
                 await this.client.connect();
                 console.log("✅ Twitch bot connected successfully.");
-                
-                // Ensure `onMessage` is only set once
-                if (!this.isMessageHandlerActive) {
-                    this.onMessage();
-                    this.isMessageHandlerActive = true;
-                }
             } catch (error) {
                 console.error("❌ Error connecting Twitch bot:", error);
             }
@@ -93,47 +108,23 @@ export class TwitchBot {
         }
     }
 
-    // 🔥 Ensure onMessage() is only registered ONCE
+    // 🔥 SafeSearch Implementation for Twitch Chat
     onMessage() {
         this.client.on("message", async (channel, user, message, self) => {
             if (self) return; // Ignore bot messages
 
-            console.log(`💬 Message received: ${message} from ${user.username}`);
-
-            const args = message.trim().split(/\s+/); // Split by spaces
+            const args = message.split(" ");
             const command = args.shift().toLowerCase();
 
-            // ✅ Handle SafeSearch Command
             if (command === "!ss" && args.length > 0) {
                 const url = args[0];
                 const result = await checkSafeSearch(url);
                 this.say(channel, `@${user.username}, ${result}`);
             }
 
-            // ✅ Handle Apply Command
-            else if (command === "!apply") {
-                this.say(channel, `@${user.username}, your application has been received!`);
-            }
-
-            // ✅ Handle Agreement System
-            else if (command === "!agree") {
-                if (!verifiedUsers[user.username]) {
-                    verifiedUsers[user.username] = true;
-                    saveVerifiedUsers();
-                    this.say(channel, `@${user.username}, you are now verified to use the chatbot!`);
-                } else {
-                    this.say(channel, `@${user.username}, you are already verified.`);
-                }
-            }
-
-            // ✅ Warn Users Who Haven't Agreed Yet
+            // ✅ Fix for Verified Users
             else if (!verifiedUsers[user.username]) {
-                this.say(channel, `@${user.username}, you must type !agree after reading and agreeing to the rules.`);
-            }
-
-            // ✅ Handle Unrecognized Commands
-            else {
-                this.say(channel, `@${user.username}, unknown command: ${command}`);
+                this.say(channel, `@${user.username}, you must type **!agree** after reading the rules.`);
             }
         });
     }

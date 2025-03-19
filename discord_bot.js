@@ -74,11 +74,6 @@ const openaiOps = new OpenAIOperations(
     process.env.HISTORY_LENGTH
 );
 
-// 📩 Message Event Listener
-client.on('messageCreate', async (message) => {
-    if (message.author.bot) return;
-    const content = message.content.trim().toLowerCase();
-
     // 🔹 OpenAI Chat Response
     if (content.startsWith('%')) {
         const userMessage = content.substring(1).trim();

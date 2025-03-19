@@ -22,16 +22,14 @@ if (fs.existsSync(verifiedUsersFile)) {
     fs.writeFileSync(verifiedUsersFile, JSON.stringify({}, null, 2));
 }
 
-function saveVerifiedUsers() {
+// ✅ Save verified users safely
+async function saveVerifiedUsers() {
     try {
-        fs.writeFileSync(verifiedUsersFile, JSON.stringify(verifiedUsers, null, 2));
+        await fsPromises.writeFile(verifiedUsersFile, JSON.stringify(verifiedUsers, null, 2));
     } catch (error) {
-        console.error("Failed to save verified users:", error);
+        console.error("❌ Failed to save verified users:", error);
     }
 }
-
-// ✅ Prevent Duplicate Responses Using Cooldowns
-const commandCooldowns = new Map();
 
 // ✅ TwitchBot Class
 export class TwitchBot {
@@ -87,27 +85,6 @@ export class TwitchBot {
     }
 
     // 🔥 Handles Messages & Commands
-    async sayTTS(channel, text, userstate) {
-        if (this.enable_tts !== 'true') return;
-
-        try {
-            const mp3 = await this.openai.audio.speech.create({
-                model: 'tts-1',
-                voice: 'alloy',
-                input: text,
-            });
-
-            const buffer = Buffer.from(await mp3.arrayBuffer());
-            const filePath = './public/file.mp3';
-            await fsPromises.writeFile(filePath, buffer);
-
-            return filePath;
-        } catch (error) {
-            console.error("❌ Error in sayTTS:", error);
-        }
-    }
-
-    // 🔥 SafeSearch Implementation for Twitch Chat
     onMessage() {
         this.client.on("message", async (channel, user, message, self) => {
             if (self) return;
@@ -115,41 +92,45 @@ export class TwitchBot {
             const args = message.split(" ");
             const command = args.shift().toLowerCase();
 
-            // ✅ Prevent duplicate responses (2-second cooldown)
-            const lastCommandTime = commandCooldowns.get(user.username) || 0;
-            const currentTime = Date.now();
-            if (currentTime - lastCommandTime < 2000) return; // Ignore repeated commands
-            commandCooldowns.set(user.username, currentTime);
+            // ✅ Remove "@" from username & standardize format
+            const cleanUsername = user.username.replace(/^@/, "").trim().toLowerCase();
 
+            // ✅ Prevent Duplicate Messages: Allow only !verify and !apply for unverified users
+            if (!this.verifiedUsers[cleanUsername] && command !== "!verify" && command !== "!apply") {
+                this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
+                return;
+            }
+
+            // ✅ SafeSearch Command
             if (command === "!ss" && args.length > 0) {
                 const url = args[0];
                 const result = await checkSafeSearch(url);
                 this.say(channel, `@${user.username}, ${result}`);
+                return; // ✅ Prevents further message processing
             }
 
+            // ✅ Verify Command
             if (command === "!verify") {
-                if (this.verifiedUsers[user.username]) {
+                if (this.verifiedUsers[cleanUsername]) {
                     this.say(channel, `@${user.username}, you are already verified! ✅`);
-                } else {
-                    const isVerified = await checkGoogleSheet(user.username);
-                    if (isVerified) {
-                        this.verifiedUsers[user.username] = true;
-                        await this.saveVerifiedUsers();
-                        this.say(channel, `@${user.username}, you have been verified! ✅`);
-                    } else {
-                        this.say(channel, `@${user.username}, you are not on the verified list. Apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-                    }
+                    return;
                 }
+
+                const isVerified = await checkGoogleSheet(cleanUsername);
+                if (isVerified) {
+                    this.verifiedUsers[cleanUsername] = true;
+                    await this.saveVerifiedUsers();
+                    this.say(channel, `@${user.username}, you have been verified! ✅`);
+                } else {
+                    this.say(channel, `@${user.username}, you are not on the verified list. Apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
+                }
+                return; // ✅ Prevents further message processing
             }
 
+            // ✅ Apply Command
             if (command === "!apply") {
                 this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-            }
-
-            // 🚫 Deny unverified users from using commands (except !verify and !apply)
-            if (message.startsWith("!") && command !== "!verify" && command !== "!apply" && !this.verifiedUsers[user.username]) {
-                this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
-                return;
+                return; // ✅ Prevents further message processing
             }
         });
     }

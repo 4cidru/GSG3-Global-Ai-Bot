@@ -140,29 +140,5 @@ wss.on('connection', (ws) => {
     });
 });
 
-// ✅ Ensure verified users are loaded only ONCE
-const verifiedUsersFile = 'verified_users.json';
-let verifiedUsers = {};
-
-if (fs.existsSync(verifiedUsersFile)) {
-    try {
-        const fileData = fs.readFileSync(verifiedUsersFile, 'utf8');
-        verifiedUsers = fileData.trim() ? JSON.parse(fileData) : {}; 
-    } catch (error) {
-        console.error("Error parsing verified_users.json:", error);
-        verifiedUsers = {}; 
-    }
-} else {
-    fs.writeFileSync(verifiedUsersFile, JSON.stringify({}, null, 2));
-}
-
-function saveVerifiedUsers() {
-    try {
-        fs.writeFileSync(verifiedUsersFile, JSON.stringify(verifiedUsers, null, 2));
-    } catch (error) {
-        console.error("Failed to save verified users:", error);
-    }
-}
-
 
 console.log("✅ Index.js fully optimized.");

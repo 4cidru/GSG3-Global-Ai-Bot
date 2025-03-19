@@ -164,7 +164,5 @@ function saveVerifiedUsers() {
     }
 }
 
-// ✅ Ensure bot.onMessage() exists in TwitchBot
-bot.onMessage();
 
 console.log("✅ Index.js fully optimized.");

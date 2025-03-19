@@ -19,6 +19,9 @@ const RANGE = "C:C"; // ✅ Check column C (Usernames)
 
 export async function checkGoogleSheet(username) {
     try {
+        // 🔥 Remove @ from username (Twitch sometimes sends @username)
+        const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
+
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SPREADSHEET_ID,
             range: RANGE,
@@ -29,8 +32,8 @@ export async function checkGoogleSheet(username) {
         // ✅ Debug: Log fetched usernames
         console.log("🔍 [Google Sheets] Usernames Found:", rows.flat());
 
-        // ✅ Ensure usernames are case-insensitive
-return rows.flat().map(name => name.trim().toLowerCase()).includes(username.toLowerCase().trim());
+        // ✅ Ensure usernames are case-insensitive & spaces are removed
+        return rows.flat().map(name => name.trim().toLowerCase()).includes(cleanUsername);
     } catch (error) {
         console.error("❌ Error checking Google Sheet:", error);
         return false;

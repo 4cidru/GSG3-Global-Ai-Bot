@@ -8,9 +8,6 @@ import fs from 'fs'; // Ensure file handling is available
 // ✅ Define the verified users object & file path
 const verifiedUsersFile = 'verified_users.json';
 let verifiedUsers = {};
-constructor(...) {
-    this.isMessageHandlerActive = false; // ✅ Prevent multiple handlers
-}
 
 // ✅ Load verified users from file safely
 if (fs.existsSync(verifiedUsersFile)) {

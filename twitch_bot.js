@@ -20,9 +20,12 @@ export class TwitchBot {
         });
         this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
+        
+        // 🔥 Prevent multiple event listeners
+        this.isMessageHandlerActive = false;
 
-        // Initialize message handling
-        this.onMessage();
+        // Connect bot
+        this.connect();
     }
 
     addChannel(channel) {
@@ -37,6 +40,12 @@ export class TwitchBot {
             try {
                 await this.client.connect();
                 console.log("✅ Twitch bot connected successfully.");
+                
+                // Ensure `onMessage` is only set once
+                if (!this.isMessageHandlerActive) {
+                    this.onMessage();
+                    this.isMessageHandlerActive = true;
+                }
             } catch (error) {
                 console.error("❌ Error connecting Twitch bot:", error);
             }
@@ -84,7 +93,7 @@ export class TwitchBot {
         }
     }
 
-    // 🔥 SafeSearch & Command Handling for Twitch Chat
+    // 🔥 Ensure onMessage() is only registered ONCE
     onMessage() {
         this.client.on("message", async (channel, user, message, self) => {
             if (self) return; // Ignore bot messages

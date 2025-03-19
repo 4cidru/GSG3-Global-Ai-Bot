@@ -3,34 +3,7 @@ import tmi from 'tmi.js';
 import OpenAI from 'openai';
 import { promises as fsPromises } from 'fs';
 import { checkSafeSearch } from "./safeSearch.js"; // Import SafeSearch function
-import fs from 'fs'; // Ensure file handling is available
 
-// ✅ Define the verified users object & file path
-const verifiedUsersFile = 'verified_users.json';
-let verifiedUsers = {};
-
-// ✅ Load verified users from file safely
-if (fs.existsSync(verifiedUsersFile)) {
-    try {
-        const fileData = fs.readFileSync(verifiedUsersFile, 'utf8');
-        verifiedUsers = fileData.trim() ? JSON.parse(fileData) : {}; 
-    } catch (error) {
-        console.error("Error parsing verified_users.json:", error);
-        verifiedUsers = {}; 
-    }
-} else {
-    fs.writeFileSync(verifiedUsersFile, JSON.stringify({}, null, 2));
-}
-
-function saveVerifiedUsers() {
-    try {
-        fs.writeFileSync(verifiedUsersFile, JSON.stringify(verifiedUsers, null, 2));
-    } catch (error) {
-        console.error("Failed to save verified users:", error);
-    }
-}
-
-// ✅ TwitchBot Class
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
         this.channels = channels;
@@ -47,6 +20,7 @@ export class TwitchBot {
         });
         this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
+        this.messageListenerAttached = false; // Prevent multiple listeners
     }
 
     addChannel(channel) {
@@ -61,6 +35,7 @@ export class TwitchBot {
             try {
                 await this.client.connect();
                 console.log("✅ Twitch bot connected successfully.");
+                this.onMessage(); // Attach message listener ONCE after connection
             } catch (error) {
                 console.error("❌ Error connecting Twitch bot:", error);
             }
@@ -108,23 +83,41 @@ export class TwitchBot {
         }
     }
 
-    // 🔥 SafeSearch Implementation for Twitch Chat
+    // 🔥 SafeSearch + OpenAI Integration
     onMessage() {
+        if (this.messageListenerAttached) return; // Prevent duplicate listeners
+        this.messageListenerAttached = true;
+
         this.client.on("message", async (channel, user, message, self) => {
             if (self) return; // Ignore bot messages
 
             const args = message.split(" ");
             const command = args.shift().toLowerCase();
 
+            // ✅ SafeSearch Check
             if (command === "!ss" && args.length > 0) {
                 const url = args[0];
                 const result = await checkSafeSearch(url);
                 this.say(channel, `@${user.username}, ${result}`);
             }
 
-            // ✅ Fix for Verified Users
-            else if (!verifiedUsers[user.username]) {
-                this.say(channel, `@${user.username}, you must type **!agree** after reading the rules.`);
+            // ✅ OpenAI Chatbot
+            else if (message.startsWith("!")) {
+                const query = message.slice(1).trim();
+                if (!query) return;
+
+                try {
+                    const response = await this.openai.chat.completions.create({
+                        model: "gpt-4",
+                        messages: [{ role: "user", content: query }],
+                        max_tokens: 100,
+                    });
+
+                    this.say(channel, response.choices[0].message.content);
+                } catch (error) {
+                    console.error("❌ OpenAI API Error:", error);
+                    this.say(channel, "⚠️ Error processing your request.");
+                }
             }
         });
     }

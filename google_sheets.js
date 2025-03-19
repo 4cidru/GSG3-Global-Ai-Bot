@@ -3,19 +3,21 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// ✅ Decode and parse Base64-encoded Google Credentials
+// ✅ Ensure GOOGLE_CREDENTIALS is set
+if (!process.env.GOOGLE_CREDENTIALS) {
+    console.error("❌ GOOGLE_CREDENTIALS is missing.");
+    process.exit(1);
+}
+
+// ✅ Decode GOOGLE_CREDENTIALS from Base64
 let credentials;
 try {
-    if (!process.env.GOOGLE_CREDENTIALS) {
-        throw new Error("❌ GOOGLE_CREDENTIALS environment variable is missing.");
-    }
+    const decodedCredentials = Buffer.from(process.env.GOOGLE_CREDENTIALS, "base64").toString("utf-8");
+    credentials = JSON.parse(decodedCredentials);
 
-    credentials = JSON.parse(
-        Buffer.from(process.env.GOOGLE_CREDENTIALS, "base64").toString("utf-8")
-    );
-
+    // ✅ Validate credentials
     if (!credentials.private_key || !credentials.client_email) {
-        throw new Error("❌ Invalid GOOGLE_CREDENTIALS format.");
+        throw new Error("Invalid GOOGLE_CREDENTIALS format.");
     }
 
     console.log("✅ Successfully loaded Google credentials.");
@@ -30,7 +32,7 @@ const sheets = google.sheets({
     auth: new google.auth.JWT(
         credentials.client_email,
         null,
-        credentials.private_key.replace(/\\n/g, "\n"), // ✅ Fixes line-break issues
+        credentials.private_key.replace(/\\n/g, "\n"), // Fixes private key formatting
         ["https://www.googleapis.com/auth/spreadsheets.readonly"]
     ),
 });

@@ -30,6 +30,9 @@ function saveVerifiedUsers() {
     }
 }
 
+// ✅ Prevent Duplicate Responses Using Cooldowns
+const commandCooldowns = new Map();
+
 // ✅ TwitchBot Class
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
@@ -42,7 +45,6 @@ export class TwitchBot {
         this.enable_tts = enable_tts;
         this.verifiedUsersFile = 'verified_users.json';
         this.verifiedUsers = this.loadVerifiedUsers();
-
     }
 
     loadVerifiedUsers() {
@@ -84,9 +86,7 @@ export class TwitchBot {
         })();
     }
 
-
     // 🔥 Handles Messages & Commands
-
     async sayTTS(channel, text, userstate) {
         if (this.enable_tts !== 'true') return;
 
@@ -115,6 +115,12 @@ export class TwitchBot {
             const args = message.split(" ");
             const command = args.shift().toLowerCase();
 
+            // ✅ Prevent duplicate responses (2-second cooldown)
+            const lastCommandTime = commandCooldowns.get(user.username) || 0;
+            const currentTime = Date.now();
+            if (currentTime - lastCommandTime < 2000) return; // Ignore repeated commands
+            commandCooldowns.set(user.username, currentTime);
+
             if (command === "!ss" && args.length > 0) {
                 const url = args[0];
                 const result = await checkSafeSearch(url);
@@ -140,8 +146,8 @@ export class TwitchBot {
                 this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
             }
 
-            // Deny unverified users from using commands
-            if (message.startsWith("!") && command !== "!verify" && !this.verifiedUsers[user.username]) {
+            // 🚫 Deny unverified users from using commands (except !verify and !apply)
+            if (message.startsWith("!") && command !== "!verify" && command !== "!apply" && !this.verifiedUsers[user.username]) {
                 this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
                 return;
             }

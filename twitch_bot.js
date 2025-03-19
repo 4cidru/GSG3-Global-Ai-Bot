@@ -2,11 +2,12 @@
 import tmi from 'tmi.js';
 import OpenAI from 'openai';
 import { promises as fsPromises } from 'fs';
+import { checkSafeSearch } from "./safeSearch.js"; // Import SafeSearch function
 
 export class TwitchBot {
     constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
         this.channels = channels;
-        this.client = new tmi.client({
+        this.client = new tmi.Client({
             connection: {
                 reconnect: true,
                 secure: true
@@ -17,47 +18,83 @@ export class TwitchBot {
             },
             channels: this.channels
         });
-        this.openai = new OpenAI({apiKey: openai_api_key});
+        this.openai = new OpenAI({ apiKey: openai_api_key });
         this.enable_tts = enable_tts;
     }
 
     addChannel(channel) {
-        // Check if channel is already in the list
         if (!this.channels.includes(channel)) {
             this.channels.push(channel);
-            // Use join method to join a channel instead of modifying the channels property directly
             this.client.join(channel);
         }
     }
 
     connect() {
-        // Use async/await syntax to handle promises
         (async () => {
             try {
-                // Await for the connection to be established
                 await this.client.connect();
+                console.log("✅ Twitch bot connected successfully.");
             } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
+                console.error("❌ Error connecting Twitch bot:", error);
             }
         })();
     }
 
     disconnect() {
-        // Use async/await syntax to handle promises
         (async () => {
             try {
-                // Await for the connection to be closed
                 await this.client.disconnect();
+                console.log("❌ Twitch bot disconnected.");
             } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
+                console.error("❌ Error disconnecting Twitch bot:", error);
             }
         })();
     }
 
-    onMessage(callback) {
-        this.client.on('message', callback);
+    say(channel, message) {
+        (async () => {
+            try {
+                await this.client.say(channel, message);
+            } catch (error) {
+                console.error("❌ Error sending message:", error);
+            }
+        })();
+    }
+
+    async sayTTS(channel, text, userstate) {
+        if (this.enable_tts !== 'true') return;
+
+        try {
+            const mp3 = await this.openai.audio.speech.create({
+                model: 'tts-1',
+                voice: 'alloy',
+                input: text,
+            });
+
+            const buffer = Buffer.from(await mp3.arrayBuffer());
+            const filePath = './public/file.mp3';
+            await fsPromises.writeFile(filePath, buffer);
+
+            return filePath;
+        } catch (error) {
+            console.error("❌ Error in sayTTS:", error);
+        }
+    }
+
+    // 🔥 SafeSearch Implementation for Twitch Chat
+    onMessage() {
+        this.client.on("message", async (channel, user, message, self) => {
+            if (self) return; // Ignore bot messages
+
+            const args = message.split(" ");
+            const command = args.shift().toLowerCase();
+
+            if (command === "!ss" && args.length > 0) {
+                const url = args[0];
+                const result = await checkSafeSearch(url);
+                this.say(channel, `@${user.username}, ${result}`);
+            }
+        });
     }
 
     onConnected(callback) {
@@ -68,120 +105,23 @@ export class TwitchBot {
         this.client.on('disconnected', callback);
     }
 
-    say(channel, message) {
-        // Use async/await syntax to handle promises
-        (async () => {
-            try {
-                // Await for the message to be sent
-                await this.client.say(channel, message);
-            } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
-            }
-        })();
-    }
-
-    async sayTTS(channel, text, userstate) {
-        // Check if TTS is enabled
-        if (this.enable_tts !== 'true') {
-            return;
-        }
-        try {
-            // Make a call to the OpenAI TTS model
-            const mp3 = await this.openai.audio.speech.create({
-                model: 'tts-1',
-                voice: 'alloy',
-                input: text,
-            });
-
-            // Convert the mp3 to a buffer
-            const buffer = Buffer.from(await mp3.arrayBuffer());
-
-            // Save the buffer as an MP3 file
-            const filePath = './public/file.mp3';
-            await fsPromises.writeFile(filePath, buffer);
-
-            // Return the path of the saved audio file
-            return filePath;
-        } catch (error) {
-            console.error('Error in sayTTS:', error);
-        }
-    }
-
-    whisper(username, message) {
-        // Use async/await syntax to handle promises
-        (async () => {
-            try {
-                // Await for the message to be sent
-                await this.client.whisper(username, message);
-            } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
-            }
-        })();
-    }
-
+    // Ban, unban, whisper, clear, etc.
     ban(channel, username, reason) {
-        // Use async/await syntax to handle promises
         (async () => {
             try {
-                // Await for the user to be banned
                 await this.client.ban(channel, username, reason);
             } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
+                console.error("❌ Error banning user:", error);
             }
         })();
     }
 
     unban(channel, username) {
-        // Use async/await syntax to handle promises
         (async () => {
             try {
-                // Await for the user to be unbanned
                 await this.client.unban(channel, username);
             } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
-            }
-        })();
-    }
-
-    clear(channel) {
-        // Use async/await syntax to handle promises
-        (async () => {
-            try {
-                // Await for the chat to be cleared
-                await this.client.clear(channel);
-            } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
-            }
-        })();
-    }
-
-    color(channel, color) {
-        // Use async/await syntax to handle promises
-        (async () => {
-            try {
-                // Await for the color to be changed
-                await this.client.color(channel, color);
-            } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
-            }
-        })();
-    }
-
-    commercial(channel, seconds) {
-        // Use async/await syntax to handle promises
-        (async () => {
-            try {
-                // Await for the commercial to be played
-                await this.client.commercial(channel, seconds);
-            } catch (error) {
-                // Handle any errors that may occur
-                console.error(error);
+                console.error("❌ Error unbanning user:", error);
             }
         })();
     }

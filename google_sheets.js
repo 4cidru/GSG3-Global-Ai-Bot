@@ -15,7 +15,7 @@ const sheets = google.sheets({
 });
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const RANGE = "C:C"; // ✅ Check usernames in column C
+const RANGE = "C:C"; // ✅ Check column C (Usernames)
 
 export async function checkGoogleSheet(username) {
     try {
@@ -27,9 +27,10 @@ export async function checkGoogleSheet(username) {
         const rows = response.data.values || [];
 
         // ✅ Debug: Log fetched usernames
-        console.log("🔍 Usernames found in Google Sheet:", rows.flat());
+        console.log("🔍 [Google Sheets] Usernames Found:", rows.flat());
 
-        return rows.flat().map(name => name.toLowerCase()).includes(username.toLowerCase()); // Check if username is found
+        // ✅ Ensure usernames are case-insensitive
+return rows.flat().map(name => name.trim().toLowerCase()).includes(username.toLowerCase().trim());
     } catch (error) {
         console.error("❌ Error checking Google Sheet:", error);
         return false;

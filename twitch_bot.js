@@ -1,8 +1,15 @@
+import * as tmi from 'tmi.js';
+import { promises as fsPromises } from 'fs';
+import fs from 'fs';
+import { checkGoogleSheet } from './google_sheets.js';
+import { checkSafeSearch } from "./safeSearch.js";
+
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
     this.botUsername = process.env.TWITCH_USER; // Store the bot's username for reference
     this.channels = channels;
-    import * as tmi from 'tmi.js';({
+    // Create a new tmi.Client instance using the provided parameters
+    this.client = new tmi.Client({
       connection: { reconnect: true, secure: true },
       identity: { username: process.env.TWITCH_USER, password: oauth_token },
       channels: this.channels

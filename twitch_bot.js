@@ -5,18 +5,15 @@ import { checkSafeSearch } from './safeSearch.js';
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
     this.botUsername = bot_username;
-    this.channels = channels;
+    this.channels = channels; // Must be an array
     this.client = new tmi.Client({
       connection: { reconnect: true, secure: true },
       identity: { username: bot_username, password: oauth_token },
       channels: this.channels
     });
+
     this.enable_tts = enable_tts;
-
-    // Tracks when we last reminded an unverified user
     this.verificationReminderTimestamps = {};
-
-    // Ensures we only attach the onMessage listener once
     this.isMessageHandlerActive = false;
   }
 
@@ -32,7 +29,7 @@ export class TwitchBot {
     })();
   }
 
-  // Send a message to chat
+  // Send a message to the chat
   say(channel, message) {
     (async () => {
       try {
@@ -49,7 +46,7 @@ export class TwitchBot {
     if (this.isMessageHandlerActive) return;
     this.isMessageHandlerActive = true;
 
-    // Remove any existing listeners, just in case
+    // Remove any existing listeners
     this.client.removeAllListeners('message');
 
     const REMINDER_COOLDOWN = 60000; // 60 seconds
@@ -67,7 +64,7 @@ export class TwitchBot {
 
       console.log(`💬 Received command: ${command} from ${cleanUsername}`);
 
-      // For unverified users, only allow "!verify" and "!apply" commands
+      // For unverified users, only allow !verify and !apply commands
       if (command !== '!verify' && command !== '!apply') {
         const isVerified = await checkGoogleSheet(cleanUsername);
         if (!isVerified) {
@@ -80,7 +77,7 @@ export class TwitchBot {
             this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
             this.verificationReminderTimestamps[cleanUsername] = now;
           }
-          return; // Stop processing further
+          return;
         }
       }
 
@@ -94,7 +91,6 @@ export class TwitchBot {
       if (command === '!verify') {
         console.log(`🔍 Checking Google Sheets for ${cleanUsername}...`);
         const isVerified = await checkGoogleSheet(cleanUsername);
-
         if (isVerified) {
           console.log(`✅ ${cleanUsername} is verified in Google Sheets.`);
           this.say(channel, `@${user.username}, you have been verified! ✅`);
@@ -105,7 +101,7 @@ export class TwitchBot {
         return;
       }
 
-      // Handle !ss (SafeSearch) command (only if user is verified)
+      // Handle !ss command (SafeSearch), only if user is verified
       if (command === '!ss' && args.length > 0) {
         const url = args[0];
         const result = await checkSafeSearch(url);
@@ -113,7 +109,7 @@ export class TwitchBot {
         return;
       }
 
-      // Add any other commands for verified users here
+      // Add other commands for verified users here...
     });
   }
 }

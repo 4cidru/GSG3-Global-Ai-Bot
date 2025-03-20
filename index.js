@@ -27,7 +27,7 @@ const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
 const sheets = google.sheets({
   version: 'v4',
-  auth: process.env.GOOGLE_API_KEY, // or a hardcoded API key
+  auth: process.env.GOOGLE_CREDENTIALS, // or a hardcoded API key
 });
 
 // Discord client config is already handled in ./discord_bot.js

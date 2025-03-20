@@ -74,10 +74,17 @@ const openaiOps = new OpenAIOperations(
     process.env.HISTORY_LENGTH
 );
 
+// ✅ Message Event Listener (Fixed)
+client.on("messageCreate", async (message) => {
+    if (message.author.bot) return;
+    const content = message.content.trim(); // Make sure 'content' is defined
+
     // 🔹 OpenAI Chat Response
     if (content.startsWith('%')) {
         const userMessage = content.substring(1).trim();
-        if (!userMessage) return message.reply('Please provide a message after `%`.');
+        if (!userMessage) {
+            return message.reply('Please provide a message after `%`.');
+        }
 
         try {
             const response = await openaiOps.make_openai_call(userMessage);
@@ -88,7 +95,7 @@ const openaiOps = new OpenAIOperations(
         }
     }
 
-    // 🔹 AI Support for "support" Channel
+    // 🔹 AI Support for "support" Channel (FIXED: Moved inside event listener)
     if (message.channel.id === supportChannelId) {
         console.log(`💬 Support message detected from ${message.author.username}: ${message.content}`);
 
@@ -117,41 +124,41 @@ const openaiOps = new OpenAIOperations(
 
 // 📊 Handle Slash Commands & Poll Button Clicks
 client.on('interactionCreate', async (interaction) => {
-    if (interaction.isCommand()) {
-        if (interaction.commandName === 'votekick') {
-            await interaction.reply({ content: "🗳️ Creating a kick poll...", ephemeral: true });
+    if (!interaction.isCommand()) return;
 
-            const channel = interaction.channel;
-            if (!channel) return interaction.followUp({ content: "❌ Could not access the channel.", ephemeral: true });
+    if (interaction.commandName === 'votekick') {
+        await interaction.reply({ content: "🗳️ Creating a kick poll...", ephemeral: true });
 
-            sendPoll(channel);
+        const channel = interaction.channel;
+        if (!channel) return interaction.followUp({ content: "❌ Could not access the channel.", ephemeral: true });
+
+        sendPoll(channel);
+    }
+
+    if (interaction.commandName === 'clear') {
+        const targetUser = interaction.options.getUser('user');
+        if (!targetUser) {
+            return interaction.reply({ content: "❌ You must mention a user!", ephemeral: true });
         }
 
-        if (interaction.commandName === 'clear') {
-            const targetUser = interaction.options.getUser('user');
-            if (!targetUser) {
-                return interaction.reply({ content: "❌ You must mention a user!", ephemeral: true });
+        const channel = interaction.channel;
+        if (!channel) {
+            return interaction.reply({ content: "❌ Could not access the channel.", ephemeral: true });
+        }
+
+        try {
+            const messages = await channel.messages.fetch({ limit: 100 });
+            const userMessages = messages.filter(msg => msg.author.id === targetUser.id).first(50);
+
+            if (userMessages.length === 0) {
+                return interaction.reply({ content: `⚠️ No messages found from ${targetUser.username}.`, ephemeral: true });
             }
 
-            const channel = interaction.channel;
-            if (!channel) {
-                return interaction.reply({ content: "❌ Could not access the channel.", ephemeral: true });
-            }
-
-            try {
-                const messages = await channel.messages.fetch({ limit: 100 });
-                const userMessages = messages.filter(msg => msg.author.id === targetUser.id).first(50);
-
-                if (userMessages.length === 0) {
-                    return interaction.reply({ content: `⚠️ No messages found from ${targetUser.username}.`, ephemeral: true });
-                }
-
-                await channel.bulkDelete(userMessages, true);
-                await interaction.reply({ content: `✅ Deleted ${userMessages.length} messages from ${targetUser.username}.` });
-            } catch (error) {
-                console.error("Clear command error:", error);
-                await interaction.reply({ content: "❌ Error deleting messages.", ephemeral: true });
-            }
+            await channel.bulkDelete(userMessages, true);
+            await interaction.reply({ content: `✅ Deleted ${userMessages.length} messages from ${targetUser.username}.` });
+        } catch (error) {
+            console.error("Clear command error:", error);
+            await interaction.reply({ content: "❌ Error deleting messages.", ephemeral: true });
         }
     }
 });
@@ -159,4 +166,3 @@ client.on('interactionCreate', async (interaction) => {
 // 🚀 Login the bot
 client.login(process.env.DISCORD_BOT_TOKEN);
 export { client };
-

@@ -8,7 +8,7 @@ import { OpenAIOperations } from './openai_operations.js';
 import { client } from './discord_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
 import { TwitchBot } from './twitch_bot.js';
-
+import { google } from 'googleapis';
 // -----------------------------------------------------------------------------
 // 1) Load environment variables
 // -----------------------------------------------------------------------------
@@ -25,7 +25,6 @@ const ENABLE_TTS = process.env.ENABLE_TTS;
 const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS;
 const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
-import { google } from 'googleapis';
 
 // Parse the service account JSON from your environment or a file
 const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);

@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // Just read the API key as a raw string
-const API_KEY = process.env.GOOGLE_API_KEY || 'AIzaSyA9jLS0go_5QOck6oJkZt11BJqAQCLGJNk';
+const API_KEY = process.env.GOOGLE_API_KEY;
 
 // Create a sheets client using the API key
 const sheets = google.sheets({

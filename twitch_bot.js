@@ -1,9 +1,10 @@
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
+    this.botUsername = process.env.TWITCH_USER; // Store the bot's username for reference
     this.channels = channels;
     this.client = new tmi.Client({
       connection: { reconnect: true, secure: true },
-      identity: { username: bot_username, password: oauth_token },
+      identity: { username: process.env.TWITCH_USER, password: oauth_token },
       channels: this.channels
     });
     this.enable_tts = enable_tts;
@@ -63,7 +64,11 @@ export class TwitchBot {
     const REMINDER_COOLDOWN = 60000; // 60 seconds
 
     this.client.on("message", async (channel, user, message, self) => {
+      // Ignore messages flagged as self
       if (self) return;
+
+      // Explicitly ignore messages from the bot's own username
+      if (user.username.toLowerCase() === this.botUsername.toLowerCase()) return;
 
       const args = message.split(" ");
       const command = args.shift().toLowerCase();

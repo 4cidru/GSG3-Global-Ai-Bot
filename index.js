@@ -6,9 +6,8 @@ import expressWs from 'express-ws';
 import { job } from './keep_alive.js';
 import { OpenAIOperations } from './openai_operations.js';
 import { client } from './discord_bot.js';
-import { TwitchBot } from './twitch_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
-
+import { TwitchBot } from './twitch_bot.js';
 // -----------------------------------------------------------------------------
 // 1) Load environment variables
 // -----------------------------------------------------------------------------
@@ -54,7 +53,7 @@ let lastResponseTime = 0;
 console.log('Channels: ', channels);
 
 // Create only one TwitchBot instance
-const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
+const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, CHANNELS, OPENAI_API_KEY, ENABLE_TTS);
 
 // Connect and attach the message handler once
 bot.connect();

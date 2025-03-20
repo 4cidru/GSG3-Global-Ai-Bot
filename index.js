@@ -5,18 +5,70 @@ import ws from 'ws';
 import expressWs from 'express-ws';
 import { job } from './keep_alive.js';
 import { OpenAIOperations } from './openai_operations.js';
-import { TwitchBot } from './twitch_bot.js';
 import { client } from './discord_bot.js';
-
-// Safe Search Service
+import { TwitchBot } from './twitch_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
 
-// ✅ Ensure we only register the Discord message listener ONCE
+// -----------------------------------------------------------------------------
+// 1) Load environment variables
+// -----------------------------------------------------------------------------
+const GPT_MODE = process.env.GPT_MODE;
+const HISTORY_LENGTH = process.env.HISTORY_LENGTH;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+const MODEL_NAME = process.env.MODEL_NAME;
+
+// Twitch credentials & config
+const TWITCH_USER = process.env.TWITCH_USER;
+const TWITCH_OAUTH = process.env.TWITCH_OAUTH;
+const CHANNELS = process.env.CHANNELS;
+const ENABLE_TTS = process.env.ENABLE_TTS;
+const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS;
+const COMMAND_NAME = process.env.COMMAND_NAME;
+const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
+
+// Discord client config is already handled in ./discord_bot.js
+// Just be sure the client is not re-instantiated.
+
+// -----------------------------------------------------------------------------
+// 2) Parse environment variables & set defaults
+// -----------------------------------------------------------------------------
+if (!OPENAI_API_KEY) {
+    console.error('No OPENAI_API_KEY found. Please set it as an environment variable.');
+}
+
+const commandNames = COMMAND_NAME
+  ? COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase())
+  : [];
+
+const channels = CHANNELS
+  ? CHANNELS.split(',').map(channel => channel.trim())
+  : [];
+
+const maxLength = 399;
+let fileContext = 'You are a helpful Twitch Chatbot.';
+let lastResponseTime = 0;
+
+// -----------------------------------------------------------------------------
+// 3) Instantiate and Configure the Twitch Bot (ONE TIME)
+// -----------------------------------------------------------------------------
+console.log('Channels: ', channels);
+
+// Create only one TwitchBot instance
+const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
+
+// Connect and attach the message handler once
+bot.connect();
+bot.onMessage();
+
+// -----------------------------------------------------------------------------
+// 4) Instantiate and Configure the Discord Bot (ONE TIME)
+// -----------------------------------------------------------------------------
 let isDiscordMessageHandlerActive = false;
 
 client.once("ready", () => {
     console.log(`🤖 Discord Bot is online as ${client.user.tag}`);
 
+    // Only attach the Discord message handler once
     if (!isDiscordMessageHandlerActive) {
         client.on("messageCreate", async (message) => {
             if (message.author.bot) return;
@@ -35,78 +87,38 @@ client.once("ready", () => {
     }
 });
 
-// Start keep-alive cron job
+// -----------------------------------------------------------------------------
+// 5) Keep-Alive Cron Job
+// -----------------------------------------------------------------------------
 job.start();
-console.log(process.env);
+console.log('Keep-alive job started.');
 
-// Setup express app
+// -----------------------------------------------------------------------------
+// 6) Setup Express + WebSockets
+// -----------------------------------------------------------------------------
 const app = express();
 const expressWsInstance = expressWs(app);
 
 app.set('view engine', 'ejs'); // Set the view engine to ejs
-
-// Load environment variables
-const GPT_MODE = process.env.GPT_MODE;
-const HISTORY_LENGTH = process.env.HISTORY_LENGTH;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const MODEL_NAME = process.env.MODEL_NAME;
-const TWITCH_USER = process.env.TWITCH_USER;
-const TWITCH_AUTH = process.env.TWITCH_AUTH;
-const COMMAND_NAME = process.env.COMMAND_NAME;
-const CHANNELS = process.env.CHANNELS;
-const SEND_USERNAME = process.env.SEND_USERNAME;
-const ENABLE_TTS = process.env.ENABLE_TTS;
-const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS;
-const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10);
-
-if (!OPENAI_API_KEY) {
-    console.error('No OPENAI_API_KEY found. Please set it as an environment variable.');
-}
-
-const commandNames = COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase());
-const channels = CHANNELS.split(',').map(channel => channel.trim());
-const maxLength = 399;
-let fileContext = 'You are a helpful Twitch Chatbot.';
-let lastResponseTime = 0;
-
-// ✅ Ensure Twitch bot is initialized only ONCE
-console.log('Channels: ', channels);
-const bot = new TwitchBot(TWITCH_USER, TWITCH_AUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
-bot.connect(); // Ensure bot connects
-
-// ✅ Ensure Twitch bot messages are only handled ONCE
-if (!bot.isMessageHandlerActive) {
-    bot.onMessage();
-    bot.isMessageHandlerActive = true;
-}
-
-// ✅ Ensure OpenAI operations are only initialized ONCE
-fileContext = fs.readFileSync('./file_context.txt', 'utf8');
-const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH);
-
-// Setup WebSocket communication
-app.ws('/check-for-updates', (ws) => {
-    ws.on('message', () => {
-        // Handle WebSocket messages (if needed)
-    });
-});
-
-const messages = [{ role: 'system', content: 'You are a helpful Twitch Chatbot.' }];
-console.log('GPT_MODE:', GPT_MODE);
-console.log('History length:', HISTORY_LENGTH);
-console.log('OpenAI API Key:', OPENAI_API_KEY);
-console.log('Model Name:', MODEL_NAME);
-
-// ✅ Ensure message routes are loaded only ONCE
 app.use(express.json({ extended: true, limit: '1mb' }));
 app.use('/public', express.static('public'));
 
+// -----------------------------------------------------------------------------
+// 7) Load/OpenAI Operations
+// -----------------------------------------------------------------------------
+fileContext = fs.readFileSync('./file_context.txt', 'utf8');
+const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH);
+
+const messages = [{ role: 'system', content: 'You are a helpful Twitch Chatbot.' }];
+
+// -----------------------------------------------------------------------------
+// 8) Express Routes
+// -----------------------------------------------------------------------------
 app.all('/', (req, res) => {
     console.log('Received a request!');
     res.render('pages/index');
 });
 
-// ✅ Prevent redundant GPT calls
 app.get('/gpt/:text', async (req, res) => {
     const text = req.params.text;
     let answer = '';
@@ -128,9 +140,13 @@ app.get('/gpt/:text', async (req, res) => {
     }
 });
 
-// ✅ Ensure Server Runs Only ONCE
-const server = app.listen(3000, () => {
-    console.log('Server running on port 3000');
+// -----------------------------------------------------------------------------
+// 9) WebSocket Handling
+// -----------------------------------------------------------------------------
+app.ws('/check-for-updates', (ws) => {
+    ws.on('message', () => {
+        // Handle WebSocket messages (if needed)
+    });
 });
 
 const wss = expressWsInstance.getWss();
@@ -140,5 +156,11 @@ wss.on('connection', (ws) => {
     });
 });
 
+// -----------------------------------------------------------------------------
+// 10) Start the Server (ONE TIME)
+// -----------------------------------------------------------------------------
+const server = app.listen(3000, () => {
+    console.log('Server running on port 3000');
+});
 
 console.log("✅ Index.js fully optimized.");

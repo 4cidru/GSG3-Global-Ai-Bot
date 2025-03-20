@@ -27,7 +27,7 @@ const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
 
 // Parse the service account JSON from your environment or a file
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const credentials = (process.env.GOOGLE_CREDENTIALS);
 const sheets = google.sheets({
   version: 'v4',
   auth: new google.auth.JWT(

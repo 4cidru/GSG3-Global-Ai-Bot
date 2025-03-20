@@ -31,5 +31,3 @@ export async function checkGoogleSheet(username) {
     return false;
   }
 }
-
-export { checkGoogleSheet };

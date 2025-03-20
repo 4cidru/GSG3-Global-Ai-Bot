@@ -1,23 +1,26 @@
 import * as tmi from 'tmi.js';
-import { checkGoogleSheet } from './google_sheets.js';
-import { checkSafeSearch } from './safeSearch.js';
+import fs from 'fs';
+import { promises as fsPromises } from 'fs';
+import { checkSafeSearch } from './safeSearch.js'; // Keep if you still want the !ss command
 
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
     this.botUsername = bot_username;
-    this.channels = channels; // Must be an array
+    this.channels = channels;
     this.client = new tmi.Client({
       connection: { reconnect: true, secure: true },
       identity: { username: bot_username, password: oauth_token },
       channels: this.channels
     });
-
     this.enable_tts = enable_tts;
-    this.verificationReminderTimestamps = {};
+
+    // Track last time each user used a command (for cooldowns)
+    this.lastCommandTimestamps = {};
+
+    // Prevent multiple message listeners
     this.isMessageHandlerActive = false;
   }
 
-  // Connect to Twitch
   connect() {
     (async () => {
       try {
@@ -29,7 +32,6 @@ export class TwitchBot {
     })();
   }
 
-  // Send a message to the chat
   say(channel, message) {
     (async () => {
       try {
@@ -40,76 +42,45 @@ export class TwitchBot {
     })();
   }
 
-  // Attach the message event listener (only once)
   onMessage() {
-    // Guard: do not attach more than once
+    // Guard: only attach once
     if (this.isMessageHandlerActive) return;
     this.isMessageHandlerActive = true;
 
     // Remove any existing listeners
-    this.client.removeAllListeners('message');
+    this.client.removeAllListeners("message");
 
-    const REMINDER_COOLDOWN = 60000; // 60 seconds
+    // 5-minute cooldown in milliseconds
+    const COOLDOWN_MS = 5 * 60 * 1000;
 
-    this.client.on('message', async (channel, user, message, self) => {
-      // Ignore bot's own messages
-      if (self) return;
+    this.client.on("message", async (channel, user, message, self) => {
+      if (self) return; // Ignore the bot's own messages
+      if (user.username.toLowerCase() === this.botUsername.toLowerCase()) return; // Ignore if somehow from the bot
 
-      // Ignore messages from the bot's own username
-      if (user.username.toLowerCase() === this.botUsername.toLowerCase()) return;
-
-      const args = message.split(' ');
+      const args = message.split(" ");
       const command = args.shift().toLowerCase();
-      const cleanUsername = user.username.replace(/^@/, '').trim().toLowerCase();
 
-      console.log(`💬 Received command: ${command} from ${cleanUsername}`);
-
-      // For unverified users, only allow !verify and !apply commands
-      if (command !== '!verify' && command !== '!apply') {
-        const isVerified = await checkGoogleSheet(cleanUsername);
-        if (!isVerified) {
-          // Rate-limit repeated reminders
-          const now = Date.now();
-          if (
-            !this.verificationReminderTimestamps[cleanUsername] ||
-            now - this.verificationReminderTimestamps[cleanUsername] > REMINDER_COOLDOWN
-          ) {
-            this.say(channel, `@${user.username}, you must verify first! Use !verify ✅`);
-            this.verificationReminderTimestamps[cleanUsername] = now;
-          }
+      // Skip cooldown if user is "Eccdri"
+      if (user.username.toLowerCase() !== 'eccdri') {
+        const now = Date.now();
+        const lastUsed = this.lastCommandTimestamps[user.username] || 0;
+        if (now - lastUsed < COOLDOWN_MS) {
+          // Still on cooldown; optionally send a reminder or do nothing
+          this.say(channel, `@${user.username}, please wait 5 minutes between commands.`);
           return;
         }
+        // Record the new usage time
+        this.lastCommandTimestamps[user.username] = now;
       }
-
-      // Handle !apply command
-      if (command === '!apply') {
-        this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-        return;
-      }
-
-      // Handle !verify command
-      if (command === '!verify') {
-        console.log(`🔍 Checking Google Sheets for ${cleanUsername}...`);
-        const isVerified = await checkGoogleSheet(cleanUsername);
-        if (isVerified) {
-          console.log(`✅ ${cleanUsername} is verified in Google Sheets.`);
-          this.say(channel, `@${user.username}, you have been verified! ✅`);
-        } else {
-          console.log(`❌ ${cleanUsername} NOT found in Google Sheets.`);
-          this.say(channel, `@${user.username}, you are not on the verified list. Apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
-        }
-        return;
-      }
-
-      // Handle !ss command (SafeSearch), only if user is verified
-      if (command === '!ss' && args.length > 0) {
+      // 2) "!ss" (SafeSearch command)
+      if (command === "!ss" && args.length > 0) {
         const url = args[0];
         const result = await checkSafeSearch(url);
         this.say(channel, `@${user.username}, ${result}`);
         return;
       }
 
-      // Add other commands for verified users here...
+      // Add any other commands here, e.g. !hello, !ping, etc.
     });
   }
 }

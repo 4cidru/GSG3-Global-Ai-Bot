@@ -1,18 +1,16 @@
-// google_sheets.js (API Key Version)
 import { google } from 'googleapis';
-import dotenv from 'dotenv';
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+const auth = new google.auth.JWT(
+  credentials.client_email,
+  null,
+  credentials.private_key.replace(/\\n/g, '\n'),
+  ['https://www.googleapis.com/auth/spreadsheets.readonly']
+);
 
-dotenv.config();
-
-// Just read the API key as a raw string
-const API_KEY = process.env.GOOGLE_API_KEY;
-
-// Create a sheets client using the API key
 const sheets = google.sheets({
   version: 'v4',
-  auth: API_KEY,
+  auth,
 });
-
 // ID of the Google Sheet (from its URL)
 const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
 const RANGE = 'C:C'; // For example, checking column C

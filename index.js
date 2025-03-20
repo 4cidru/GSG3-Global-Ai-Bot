@@ -25,9 +25,18 @@ const ENABLE_TTS = process.env.ENABLE_TTS;
 const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS;
 const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
+import { google } from 'googleapis';
+
+// Parse the service account JSON from your environment or a file
+const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
 const sheets = google.sheets({
   version: 'v4',
-  auth: process.env.GOOGLE_CREDENTIALS, // or a hardcoded API key
+  auth: new google.auth.JWT(
+    credentials.client_email,
+    null,
+    credentials.private_key.replace(/\\n/g, '\n'),
+    ['https://www.googleapis.com/auth/spreadsheets.readonly']
+  )
 });
 
 // Discord client config is already handled in ./discord_bot.js

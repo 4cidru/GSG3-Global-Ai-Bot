@@ -25,7 +25,7 @@ try {
     const RANGE = "C:C"; // ✅ Check column C (Usernames)
 
     // ✅ Function to check if a username exists in Google Sheets
-    async function checkGoogleSheet(username) {
+    export async function checkGoogleSheet(username) {
         try {
             const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
             const response = await sheets.spreadsheets.values.get({
@@ -42,9 +42,6 @@ try {
             return false;
         }
     }
-
-    // ✅ Use module.exports for CommonJS
-    module.exports = { checkGoogleSheet };
 
 } catch (error) {
     console.error("❌ Error parsing GOOGLE_CREDENTIALS:", error);

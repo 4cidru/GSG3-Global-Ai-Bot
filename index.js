@@ -8,7 +8,6 @@ import { OpenAIOperations } from './openai_operations.js';
 import { client } from './discord_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
 import { TwitchBot } from './twitch_bot.js';
-import { google } from 'googleapis';
 
 // -----------------------------------------------------------------------------
 // 1) Load environment variables
@@ -28,7 +27,7 @@ const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
 
 // -----------------------------------------------------------------------------
-// 2) Parse environment variables & set defaults
+//Parse environment variables & set defaults
 // -----------------------------------------------------------------------------
 if (!OPENAI_API_KEY) {
     console.error('No OPENAI_API_KEY found. Please set it as an environment variable.');
@@ -50,39 +49,14 @@ let lastResponseTime = 0;
 console.log('Channels: ', channels);
 
 // -----------------------------------------------------------------------------
-// 3) Decode & Parse Service Account for Google Sheets (base64 -> JSON)
-// -----------------------------------------------------------------------------
-console.log('GOOGLE_CREDENTIALS (first 100 chars):', process.env.GOOGLE_CREDENTIALS?.slice(0,100), '...');
-try {
-  const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS || '', 'base64').toString('utf-8');
-  console.log('Decoded credentials (first 100 chars):', decoded.slice(0,100), '...');
-  const credentials = JSON.parse(decoded);
-  console.log('Parsed credentials:', credentials);
-
-  // Create a JWT auth client
-  const auth = new google.auth.JWT(
-    credentials.client_email,
-    null,
-    credentials.private_key.replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/spreadsheets.readonly']
-  );
-
-  // Optionally, create your own sheets client here if needed:
-  // const sheets = google.sheets({ version: 'v4', auth });
-  
-} catch (err) {
-  console.error("❌ Failed to parse service account JSON. Check your base64-encoded GOOGLE_CREDENTIALS:", err);
-}
-
-// -----------------------------------------------------------------------------
-// 4) Instantiate and Configure the Twitch Bot (ONE TIME)
+//  Instantiate and Configure the Twitch Bot (ONE TIME)
 // -----------------------------------------------------------------------------
 const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
 bot.connect();
 bot.onMessage();
 
 // -----------------------------------------------------------------------------
-// 5) Instantiate and Configure the Discord Bot (ONE TIME)
+//  Instantiate and Configure the Discord Bot (ONE TIME)
 // -----------------------------------------------------------------------------
 let isDiscordMessageHandlerActive = false;
 
@@ -131,7 +105,7 @@ const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, 
 const messages = [{ role: 'system', content: 'You are a helpful Twitch Chatbot.' }];
 
 // -----------------------------------------------------------------------------
-// 9) Express Routes
+//  Express Routes
 // -----------------------------------------------------------------------------
 app.all('/', (req, res) => {
     console.log('Received a request!');

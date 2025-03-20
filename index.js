@@ -8,6 +8,7 @@ import { OpenAIOperations } from './openai_operations.js';
 import { client } from './discord_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
 import { TwitchBot } from './twitch_bot.js';
+
 // -----------------------------------------------------------------------------
 // 1) Load environment variables
 // -----------------------------------------------------------------------------
@@ -39,6 +40,7 @@ const commandNames = COMMAND_NAME
   ? COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase())
   : [];
 
+// IMPORTANT: Convert CHANNELS string into an array
 const channels = CHANNELS
   ? CHANNELS.split(',').map(channel => channel.trim())
   : [];
@@ -52,8 +54,8 @@ let lastResponseTime = 0;
 // -----------------------------------------------------------------------------
 console.log('Channels: ', channels);
 
-// Create only one TwitchBot instance
-const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, CHANNELS, OPENAI_API_KEY, ENABLE_TTS);
+// Pass `channels` (the array) to the TwitchBot, not the raw `CHANNELS` string
+const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
 
 // Connect and attach the message handler once
 bot.connect();

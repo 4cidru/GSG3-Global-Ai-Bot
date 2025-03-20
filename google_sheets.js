@@ -1,5 +1,5 @@
-import { google } from "googleapis";
-import dotenv from "dotenv";
+const { google } = require("googleapis");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
@@ -25,7 +25,7 @@ try {
     const RANGE = "C:C"; // ✅ Check column C (Usernames)
 
     // ✅ Function to check if a username exists in Google Sheets
-    export async function checkGoogleSheet(username) {
+    async function checkGoogleSheet(username) {
         try {
             const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
             const response = await sheets.spreadsheets.values.get({
@@ -42,6 +42,9 @@ try {
             return false;
         }
     }
+
+    // ✅ Correct CommonJS Export
+    module.exports = { checkGoogleSheet };
 
 } catch (error) {
     console.error("❌ Error parsing GOOGLE_CREDENTIALS:", error);

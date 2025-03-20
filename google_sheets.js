@@ -1,5 +1,8 @@
 import { google } from 'googleapis';
-const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
+const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS, 'base64').toString('utf-8');
+const credentials = JSON.parse(decoded);
+
 const auth = new google.auth.JWT(
   credentials.client_email,
   null,
@@ -7,13 +10,10 @@ const auth = new google.auth.JWT(
   ['https://www.googleapis.com/auth/spreadsheets.readonly']
 );
 
-const sheets = google.sheets({
-  version: 'v4',
-  auth,
-});
-// ID of the Google Sheet (from its URL)
-const SPREADSHEET_ID = process.env.GOOGLE_SHEET_ID;
-const RANGE = 'C:C'; // For example, checking column C
+const sheets = google.sheets({ version: 'v4', auth });
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
+const RANGE = 'C:C';
 
 export async function checkGoogleSheet(username) {
   try {

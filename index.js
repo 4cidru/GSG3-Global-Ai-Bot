@@ -9,6 +9,7 @@ import { client } from './discord_bot.js';
 import { checkSafeSearch } from "./safeSearch.js";
 import { TwitchBot } from './twitch_bot.js';
 import { google } from 'googleapis';
+
 // -----------------------------------------------------------------------------
 // 1) Load environment variables
 // -----------------------------------------------------------------------------
@@ -26,21 +27,6 @@ const ENABLE_CHANNEL_POINTS = process.env.ENABLE_CHANNEL_POINTS;
 const COMMAND_NAME = process.env.COMMAND_NAME;
 const COOLDOWN_DURATION = parseInt(process.env.COOLDOWN_DURATION, 10) || 0;
 
-// Parse the service account JSON from your environment or a file
-const credentials = (process.env.GOOGLE_CREDENTIALS);
-const sheets = google.sheets({
-  version: 'v4',
-  auth: new google.auth.JWT(
-    credentials.client_email,
-    null,
-    credentials.private_key.replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/spreadsheets.readonly']
-  )
-});
-
-// Discord client config is already handled in ./discord_bot.js
-// Just be sure the client is not re-instantiated.
-
 // -----------------------------------------------------------------------------
 // 2) Parse environment variables & set defaults
 // -----------------------------------------------------------------------------
@@ -52,7 +38,7 @@ const commandNames = COMMAND_NAME
   ? COMMAND_NAME.split(',').map(cmd => cmd.trim().toLowerCase())
   : [];
 
-// IMPORTANT: Convert CHANNELS string into an array
+// Convert CHANNELS string to array
 const channels = CHANNELS
   ? CHANNELS.split(',').map(channel => channel.trim())
   : [];
@@ -61,27 +47,48 @@ const maxLength = 399;
 let fileContext = 'You are a helpful Twitch Chatbot.';
 let lastResponseTime = 0;
 
-// -----------------------------------------------------------------------------
-// 3) Instantiate and Configure the Twitch Bot (ONE TIME)
-// -----------------------------------------------------------------------------
 console.log('Channels: ', channels);
 
-// Pass `channels` (the array) to the TwitchBot, not the raw `CHANNELS` string
-const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
+// -----------------------------------------------------------------------------
+// 3) Decode & Parse Service Account for Google Sheets (base64 -> JSON)
+// -----------------------------------------------------------------------------
+console.log('GOOGLE_CREDENTIALS (first 100 chars):', process.env.GOOGLE_CREDENTIALS?.slice(0,100), '...');
+try {
+  const decoded = Buffer.from(process.env.GOOGLE_CREDENTIALS || '', 'base64').toString('utf-8');
+  console.log('Decoded credentials (first 100 chars):', decoded.slice(0,100), '...');
+  const credentials = JSON.parse(decoded);
+  console.log('Parsed credentials:', credentials);
 
-// Connect and attach the message handler once
+  // Create a JWT auth client
+  const auth = new google.auth.JWT(
+    credentials.client_email,
+    null,
+    credentials.private_key.replace(/\\n/g, '\n'),
+    ['https://www.googleapis.com/auth/spreadsheets.readonly']
+  );
+
+  // Optionally, create your own sheets client here if needed:
+  // const sheets = google.sheets({ version: 'v4', auth });
+  
+} catch (err) {
+  console.error("❌ Failed to parse service account JSON. Check your base64-encoded GOOGLE_CREDENTIALS:", err);
+}
+
+// -----------------------------------------------------------------------------
+// 4) Instantiate and Configure the Twitch Bot (ONE TIME)
+// -----------------------------------------------------------------------------
+const bot = new TwitchBot(TWITCH_USER, TWITCH_OAUTH, channels, OPENAI_API_KEY, ENABLE_TTS);
 bot.connect();
 bot.onMessage();
 
 // -----------------------------------------------------------------------------
-// 4) Instantiate and Configure the Discord Bot (ONE TIME)
+// 5) Instantiate and Configure the Discord Bot (ONE TIME)
 // -----------------------------------------------------------------------------
 let isDiscordMessageHandlerActive = false;
 
 client.once("ready", () => {
     console.log(`🤖 Discord Bot is online as ${client.user.tag}`);
 
-    // Only attach the Discord message handler once
     if (!isDiscordMessageHandlerActive) {
         client.on("messageCreate", async (message) => {
             if (message.author.bot) return;
@@ -95,29 +102,28 @@ client.once("ready", () => {
                 message.reply(result);
             }
         });
-
         isDiscordMessageHandlerActive = true;
     }
 });
 
 // -----------------------------------------------------------------------------
-// 5) Keep-Alive Cron Job
+// 6) Keep-Alive Cron Job
 // -----------------------------------------------------------------------------
 job.start();
 console.log('Keep-alive job started.');
 
 // -----------------------------------------------------------------------------
-// 6) Setup Express + WebSockets
+// 7) Setup Express + WebSockets
 // -----------------------------------------------------------------------------
 const app = express();
 const expressWsInstance = expressWs(app);
 
-app.set('view engine', 'ejs'); // Set the view engine to ejs
+app.set('view engine', 'ejs');
 app.use(express.json({ extended: true, limit: '1mb' }));
 app.use('/public', express.static('public'));
 
 // -----------------------------------------------------------------------------
-// 7) Load/OpenAI Operations
+// 8) Load/OpenAI Operations
 // -----------------------------------------------------------------------------
 fileContext = fs.readFileSync('./file_context.txt', 'utf8');
 const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, HISTORY_LENGTH);
@@ -125,7 +131,7 @@ const openaiOps = new OpenAIOperations(fileContext, OPENAI_API_KEY, MODEL_NAME, 
 const messages = [{ role: 'system', content: 'You are a helpful Twitch Chatbot.' }];
 
 // -----------------------------------------------------------------------------
-// 8) Express Routes
+// 9) Express Routes
 // -----------------------------------------------------------------------------
 app.all('/', (req, res) => {
     console.log('Received a request!');
@@ -145,7 +151,6 @@ app.get('/gpt/:text', async (req, res) => {
         } else {
             throw new Error('GPT_MODE is not set to CHAT or PROMPT. Please set it as an environment variable.');
         }
-
         res.send(answer);
     } catch (error) {
         console.error('Error generating response:', error);
@@ -154,7 +159,7 @@ app.get('/gpt/:text', async (req, res) => {
 });
 
 // -----------------------------------------------------------------------------
-// 9) WebSocket Handling
+// 10) WebSocket Handling
 // -----------------------------------------------------------------------------
 app.ws('/check-for-updates', (ws) => {
     ws.on('message', () => {
@@ -170,7 +175,7 @@ wss.on('connection', (ws) => {
 });
 
 // -----------------------------------------------------------------------------
-// 10) Start the Server (ONE TIME)
+// 11) Start the Server (ONE TIME)
 // -----------------------------------------------------------------------------
 const server = app.listen(3000, () => {
     console.log('Server running on port 3000');

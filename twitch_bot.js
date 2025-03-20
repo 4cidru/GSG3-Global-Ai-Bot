@@ -1,7 +1,5 @@
 import * as tmi from 'tmi.js';
-import fs from 'fs';
-import { promises as fsPromises } from 'fs';
-import { checkSafeSearch } from './safeSearch.js'; // Keep if you still want the !ss command
+import { checkSafeSearch } from './safeSearch.js'; // If you still want the !ss command
 
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
@@ -14,24 +12,36 @@ export class TwitchBot {
     });
     this.enable_tts = enable_tts;
 
-    // Track last time each user used a command (for cooldowns)
+    // Store last command usage time for cooldown
     this.lastCommandTimestamps = {};
 
-    // Prevent multiple message listeners
+    // Prevent re-attaching the message listener multiple times
     this.isMessageHandlerActive = false;
   }
 
+  // Connect to Twitch
   connect() {
     (async () => {
       try {
         await this.client.connect();
         console.log("✅ Twitch bot connected successfully.");
+
+        // Minimal debug: log when connected and joined
+        this.client.on('connected', (addr, port) => {
+          console.log(`✅ Connected to ${addr}:${port}`);
+        });
+        this.client.on('join', (channel, username, self) => {
+          if (self) {
+            console.log(`✅ Joined channel: ${channel}`);
+          }
+        });
       } catch (error) {
         console.error("❌ Error connecting Twitch bot:", error);
       }
     })();
   }
 
+  // Helper to send a message
   say(channel, message) {
     (async () => {
       try {
@@ -42,37 +52,49 @@ export class TwitchBot {
     })();
   }
 
+  // Attach the message listener (only once)
   onMessage() {
-    // Guard: only attach once
     if (this.isMessageHandlerActive) return;
     this.isMessageHandlerActive = true;
 
-    // Remove any existing listeners
     this.client.removeAllListeners("message");
 
-    // 5-minute cooldown in milliseconds
+    // 5-minute cooldown (in ms)
     const COOLDOWN_MS = 5 * 60 * 1000;
 
     this.client.on("message", async (channel, user, message, self) => {
-      if (self) return; // Ignore the bot's own messages
-      if (user.username.toLowerCase() === this.botUsername.toLowerCase()) return; // Ignore if somehow from the bot
+      // Ignore the bot's own messages
+      if (self) return;
 
-      const args = message.split(" ");
-      const command = args.shift().toLowerCase();
+      // Basic log to see incoming messages
+      console.log(`[${channel}] <${user.username}>: ${message}`);
 
-      // Skip cooldown if user is "Eccdri"
-      if (user.username.toLowerCase() !== 'eccdri') {
+      // Eccdri is exempt from cooldown
+      const isEccdri = user.username.toLowerCase() === 'eccdri';
+
+      if (!isEccdri) {
         const now = Date.now();
         const lastUsed = this.lastCommandTimestamps[user.username] || 0;
         if (now - lastUsed < COOLDOWN_MS) {
-          // Still on cooldown; optionally send a reminder or do nothing
+          // User still on cooldown
           this.say(channel, `@${user.username}, please wait 5 minutes between commands.`);
           return;
         }
-        // Record the new usage time
+        // Record new usage time
         this.lastCommandTimestamps[user.username] = now;
       }
-      // 2) "!ss" (SafeSearch command)
+
+      // Parse the command
+      const args = message.trim().split(/\s+/);
+      const command = args.shift().toLowerCase();
+
+      // Example command: !apply
+      if (command === "!apply") {
+        this.say(channel, `@${user.username}, apply for verification here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
+        return;
+      }
+
+      // Example command: !ss (SafeSearch)
       if (command === "!ss" && args.length > 0) {
         const url = args[0];
         const result = await checkSafeSearch(url);
@@ -80,7 +102,7 @@ export class TwitchBot {
         return;
       }
 
-      // Add any other commands here, e.g. !hello, !ping, etc.
+      // Add more commands here if needed
     });
   }
 }

@@ -1,7 +1,7 @@
 import * as tmi from 'tmi.js';
 import { checkSafeSearch } from './safeSearch.js';
 import { OpenAIOperations } from './openai_operations.js';
-import OBSWebSocket from 'obs-websocket-js';
+const OBSWebSocket = require('obs-websocket-js');
 import fs from 'fs';
 import path from 'path';
 

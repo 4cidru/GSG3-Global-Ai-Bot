@@ -1,16 +1,20 @@
-const tmi = require('tmi.js');
-const { checkSafeSearch } = require('./safeSearch.js');
-const { OpenAIOperations } = require('./openai_operations.js');
-const OBSWebSocket = require('obs-websocket-js');
-const fs = require('fs');
-const path = require('path');
+import tmi from 'tmi.js';
+import { checkSafeSearch } from './safeSearch.js';
+import { OpenAIOperations } from './openai_operations.js';
+import OBSWebSocket from 'obs-websocket-js';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
-// Update this to your exact media folder on Windows
+// Path helpers for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// ✅ Media folder (customize for your system)
 const mediaFolder = 'E:\\Now Watching';
 
-// OBS WebSocket connection
 const obs = new OBSWebSocket();
-
 obs.connect({
   address: 'localhost:4444',
   password: 'reira11!.bridge11!'
@@ -20,7 +24,7 @@ obs.connect({
   console.error('❌ Failed to connect to OBS:', err);
 });
 
-class TwitchBot {
+export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
     this.botUsername = bot_username;
     this.channels = channels;
@@ -43,61 +47,48 @@ class TwitchBot {
   }
 
   connect() {
-    (async () => {
-      try {
-        await this.client.connect();
-        console.log("✅ Twitch bot connected successfully.");
+    this.client.connect()
+      .then(() => console.log("✅ Twitch bot connected successfully."))
+      .catch(err => console.error("❌ Twitch bot connection failed:", err));
 
-        this.client.on('connected', (addr, port) => {
-          console.log(`✅ Connected to ${addr}:${port}`);
-        });
+    this.client.on('connected', (addr, port) => {
+      console.log(`✅ Connected to ${addr}:${port}`);
+    });
 
-        this.client.on('join', (channel, username, self) => {
-          if (self) {
-            console.log(`✅ Joined channel: ${channel}`);
-          }
-        });
-      } catch (error) {
-        console.error("❌ Error connecting Twitch bot:", error);
+    this.client.on('join', (channel, username, self) => {
+      if (self) {
+        console.log(`✅ Joined channel: ${channel}`);
       }
-    })();
+    });
   }
 
   say(channel, message) {
-    (async () => {
-      try {
-        await this.client.say(channel, message);
-      } catch (error) {
-        console.error("❌ Error sending message:", error);
-      }
-    })();
+    this.client.say(channel, message).catch(err => {
+      console.error("❌ Error sending message:", err);
+    });
   }
 
   onMessage() {
     if (this.isMessageHandlerActive) return;
     this.isMessageHandlerActive = true;
 
-    this.client.removeAllListeners("message");
-
     const COOLDOWN_MS = 5 * 60 * 1000;
 
     this.client.on("message", async (channel, user, message, self) => {
       if (self) return;
-
       console.log(`[${channel}] <${user.username}>: ${message}`);
-
       if (!message.startsWith('!')) return;
 
-      const isEccdri = (user.username.toLowerCase() === 'eccdri');
-      if (!isEccdri) {
-        const now = Date.now();
-        const lastUsed = this.lastCommandTimestamps[user.username] || 0;
-        if (now - lastUsed < COOLDOWN_MS) {
-          this.say(channel, `@${user.username}, please wait 5 minutes between commands.`);
-          return;
-        }
-        this.lastCommandTimestamps[user.username] = now;
+      const isEccdri = user.username.toLowerCase() === 'eccdri';
+      const now = Date.now();
+      const lastUsed = this.lastCommandTimestamps[user.username] || 0;
+
+      if (!isEccdri && (now - lastUsed < COOLDOWN_MS)) {
+        this.say(channel, `@${user.username}, please wait 5 minutes between commands.`);
+        return;
       }
+
+      this.lastCommandTimestamps[user.username] = now;
 
       const args = message.trim().split(/\s+/);
       const command = args.shift().toLowerCase();
@@ -112,38 +103,35 @@ class TwitchBot {
         try {
           const result = await checkSafeSearch(url);
           this.say(channel, `@${user.username}, ${result}`);
-        } catch (error) {
-          console.error("Error in safeSearch:", error);
-          this.say(channel, `@${user.username}, an error occurred with safeSearch.`);
+        } catch (err) {
+          console.error("SafeSearch error:", err);
+          this.say(channel, `@${user.username}, error during safe search.`);
         }
         return;
       }
 
-      // === !play command ===
       if (command === '!play' && args.length > 0) {
         const mediaName = args[0];
-        const possibleExtensions = ['.mp4', '.webm', '.mp3', '.gif'];
-        let foundPath = null;
+        const extensions = ['.mp4', '.webm', '.mp3', '.gif'];
+        let fileToPlay = null;
 
-        for (const ext of possibleExtensions) {
-          const tryPath = path.join(mediaFolder, mediaName + ext);
-          if (fs.existsSync(tryPath)) {
-            foundPath = tryPath;
+        for (const ext of extensions) {
+          const filePath = path.join(mediaFolder, mediaName + ext);
+          if (fs.existsSync(filePath)) {
+            fileToPlay = filePath;
             break;
           }
         }
 
-        if (!foundPath) {
-          this.say(channel, `@${user.username}, file "${mediaName}" not found.`);
+        if (!fileToPlay) {
+          this.say(channel, `@${user.username}, "${mediaName}" not found.`);
           return;
         }
 
         try {
           await obs.send('SetSourceSettings', {
             sourceName: 'TriggeredMedia',
-            sourceSettings: {
-              local_file: foundPath
-            }
+            sourceSettings: { local_file: fileToPlay }
           });
 
           await obs.send('SetSceneItemRender', {
@@ -152,27 +140,23 @@ class TwitchBot {
           });
 
           this.say(channel, `@${user.username} triggered: ${mediaName}`);
-          console.log(`🎬 Playing: ${foundPath}`);
+          console.log(`🎬 Playing: ${fileToPlay}`);
         } catch (err) {
-          console.error('🔴 OBS error:', err);
-          this.say(channel, `@${user.username}, failed to trigger media playback.`);
+          console.error("OBS error:", err);
+          this.say(channel, `@${user.username}, media failed to play.`);
         }
 
         return;
       }
 
-      // === Fallback to GPT ===
-      const userPrompt = message.slice(1);
+      // Fallback: GPT
       try {
-        const gptResponse = await this.openaiOps.make_openai_call(userPrompt);
+        const gptResponse = await this.openaiOps.make_openai_call(message.slice(1));
         this.say(channel, `@${user.username}, ${gptResponse}`);
       } catch (error) {
-        console.error("Error generating GPT response:", error);
-        this.say(channel, `@${user.username}, sorry, I encountered an error with GPT.`);
+        console.error("GPT Error:", error);
+        this.say(channel, `@${user.username}, GPT failed.`);
       }
     });
   }
 }
-
-// ✅ This is what fixes your import issue
-module.exports = { TwitchBot };

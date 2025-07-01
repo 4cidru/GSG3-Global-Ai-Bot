@@ -1,14 +1,16 @@
-import * as tmi from 'tmi.js';
-import { checkSafeSearch } from './safeSearch.js';
-import { OpenAIOperations } from './openai_operations.js';
+const tmi = require('tmi.js');
+const { checkSafeSearch } = require('./safeSearch.js');
+const { OpenAIOperations } = require('./openai_operations.js');
 const OBSWebSocket = require('obs-websocket-js');
-import fs from 'fs';
-import path from 'path';
+const fs = require('fs');
+const path = require('path');
 
+// Update this to your exact media folder on Windows
+const mediaFolder = 'E:\\Now Watching';
+
+// OBS WebSocket connection
 const obs = new OBSWebSocket();
-const mediaFolder = 'E:\\Now Watching'; // Adjust if needed
 
-// OBS WebSocket v4.9.1 connection (OBS 27.2.4)
 obs.connect({
   address: 'localhost:4444',
   password: 'reira11!.bridge11!'
@@ -18,7 +20,7 @@ obs.connect({
   console.error('❌ Failed to connect to OBS:', err);
 });
 
-export class TwitchBot {
+class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
     this.botUsername = bot_username;
     this.channels = channels;
@@ -49,6 +51,7 @@ export class TwitchBot {
         this.client.on('connected', (addr, port) => {
           console.log(`✅ Connected to ${addr}:${port}`);
         });
+
         this.client.on('join', (channel, username, self) => {
           if (self) {
             console.log(`✅ Joined channel: ${channel}`);
@@ -83,7 +86,7 @@ export class TwitchBot {
 
       console.log(`[${channel}] <${user.username}>: ${message}`);
 
-      if (!message.startsWith('#')) return;
+      if (!message.startsWith('!')) return;
 
       const isEccdri = (user.username.toLowerCase() === 'eccdri');
       if (!isEccdri) {
@@ -99,13 +102,11 @@ export class TwitchBot {
       const args = message.trim().split(/\s+/);
       const command = args.shift().toLowerCase();
 
-      // -- STATIC COMMAND --
       if (command === '!apply') {
         this.say(channel, `@${user.username}, apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
         return;
       }
 
-      // -- SAFE SEARCH CHECK --
       if (command === '!ss' && args.length > 0) {
         const url = args[0];
         try {
@@ -118,7 +119,7 @@ export class TwitchBot {
         return;
       }
 
-      // -- PLAY MEDIA COMMAND --
+      // === !play command ===
       if (command === '!play' && args.length > 0) {
         const mediaName = args[0];
         const possibleExtensions = ['.mp4', '.webm', '.mp3', '.gif'];
@@ -160,7 +161,7 @@ export class TwitchBot {
         return;
       }
 
-      // -- FALLBACK TO GPT RESPONSE --
+      // === Fallback to GPT ===
       const userPrompt = message.slice(1);
       try {
         const gptResponse = await this.openaiOps.make_openai_call(userPrompt);
@@ -172,3 +173,5 @@ export class TwitchBot {
     });
   }
 }
+
+module.exports = { TwitchBot };

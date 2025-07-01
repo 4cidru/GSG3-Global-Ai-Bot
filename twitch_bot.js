@@ -174,4 +174,4 @@ class TwitchBot {
   }
 }
 
-module.exports = { TwitchBot };
+export { TwitchBot };

@@ -174,4 +174,5 @@ class TwitchBot {
   }
 }
 
-export { TwitchBot };
+// ✅ This is what fixes your import issue
+module.exports = { TwitchBot };

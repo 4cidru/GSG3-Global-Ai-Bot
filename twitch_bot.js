@@ -1,6 +1,22 @@
 import * as tmi from 'tmi.js';
 import { checkSafeSearch } from './safeSearch.js';
-import { OpenAIOperations } from './openai_operations.js'; // Ensure this exists
+import { OpenAIOperations } from './openai_operations.js';
+import OBSWebSocket from 'obs-websocket-js';
+import fs from 'fs';
+import path from 'path';
+
+const obs = new OBSWebSocket();
+const mediaFolder = 'E:\\Now Watching'; // Adjust if needed
+
+// OBS WebSocket v4.9.1 connection (OBS 27.2.4)
+obs.connect({
+  address: 'localhost:4444',
+  password: 'reira11!.bridge11!'
+}).then(() => {
+  console.log('✅ Connected to OBS WebSocket');
+}).catch(err => {
+  console.error('❌ Failed to connect to OBS:', err);
+});
 
 export class TwitchBot {
   constructor(bot_username, oauth_token, channels, openai_api_key, enable_tts) {
@@ -13,19 +29,14 @@ export class TwitchBot {
     });
     this.enable_tts = enable_tts;
 
-    // Create your OpenAI helper class
-    // Adjust parameters as needed (model name, history length, etc.)
     this.openaiOps = new OpenAIOperations(
-      'You are a helpful Twitch Chatbot.', // system prompt
-      openai_api_key,                     // API key
-      'gpt-3.5-turbo',                    // model name
-      10                                  // history length or your preference
+      'You are a helpful Twitch Chatbot.',
+      openai_api_key,
+      'gpt-3.5-turbo',
+      10
     );
 
-    // Store the last command usage timestamps for cooldown
     this.lastCommandTimestamps = {};
-
-    // Prevent multiple message listeners
     this.isMessageHandlerActive = false;
   }
 
@@ -35,7 +46,6 @@ export class TwitchBot {
         await this.client.connect();
         console.log("✅ Twitch bot connected successfully.");
 
-        // Minimal debug logs
         this.client.on('connected', (addr, port) => {
           console.log(`✅ Connected to ${addr}:${port}`);
         });
@@ -66,43 +76,36 @@ export class TwitchBot {
 
     this.client.removeAllListeners("message");
 
-    // 5-minute cooldown in milliseconds
     const COOLDOWN_MS = 5 * 60 * 1000;
 
     this.client.on("message", async (channel, user, message, self) => {
-      // Ignore the bot’s own messages
       if (self) return;
 
       console.log(`[${channel}] <${user.username}>: ${message}`);
 
-      // Only proceed if message starts with "!"
       if (!message.startsWith('!')) return;
 
-      // Eccdri is exempt from cooldown
       const isEccdri = (user.username.toLowerCase() === 'eccdri');
       if (!isEccdri) {
         const now = Date.now();
         const lastUsed = this.lastCommandTimestamps[user.username] || 0;
         if (now - lastUsed < COOLDOWN_MS) {
-          // User still on cooldown
           this.say(channel, `@${user.username}, please wait 5 minutes between commands.`);
           return;
         }
-        // Record new usage time
         this.lastCommandTimestamps[user.username] = now;
       }
 
-      // Parse the command
       const args = message.trim().split(/\s+/);
       const command = args.shift().toLowerCase();
 
-      // Example command: !apply
+      // -- STATIC COMMAND --
       if (command === '!apply') {
         this.say(channel, `@${user.username}, apply here: https://forms.gle/ohr8dJKGyDMNSYKd6`);
         return;
       }
 
-      // Example command: !ss (SafeSearch)
+      // -- SAFE SEARCH CHECK --
       if (command === '!ss' && args.length > 0) {
         const url = args[0];
         try {
@@ -115,9 +118,50 @@ export class TwitchBot {
         return;
       }
 
-      // Fallback: any other !command => GPT response
-      // (e.g., user typed "!hello" or "!gpt Hello there")
-      const userPrompt = message.slice(1); // remove the leading "!"
+      // -- PLAY MEDIA COMMAND --
+      if (command === '!play' && args.length > 0) {
+        const mediaName = args[0];
+        const possibleExtensions = ['.mp4', '.webm', '.mp3', '.gif'];
+        let foundPath = null;
+
+        for (const ext of possibleExtensions) {
+          const tryPath = path.join(mediaFolder, mediaName + ext);
+          if (fs.existsSync(tryPath)) {
+            foundPath = tryPath;
+            break;
+          }
+        }
+
+        if (!foundPath) {
+          this.say(channel, `@${user.username}, file "${mediaName}" not found.`);
+          return;
+        }
+
+        try {
+          await obs.send('SetSourceSettings', {
+            sourceName: 'TriggeredMedia',
+            sourceSettings: {
+              local_file: foundPath
+            }
+          });
+
+          await obs.send('SetSceneItemRender', {
+            source: 'TriggeredMedia',
+            render: true
+          });
+
+          this.say(channel, `@${user.username} triggered: ${mediaName}`);
+          console.log(`🎬 Playing: ${foundPath}`);
+        } catch (err) {
+          console.error('🔴 OBS error:', err);
+          this.say(channel, `@${user.username}, failed to trigger media playback.`);
+        }
+
+        return;
+      }
+
+      // -- FALLBACK TO GPT RESPONSE --
+      const userPrompt = message.slice(1);
       try {
         const gptResponse = await this.openaiOps.make_openai_call(userPrompt);
         this.say(channel, `@${user.username}, ${gptResponse}`);

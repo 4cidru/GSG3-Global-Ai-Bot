@@ -83,7 +83,7 @@ export class TwitchBot {
 
       console.log(`[${channel}] <${user.username}>: ${message}`);
 
-      if (!message.startsWith('!')) return;
+      if (!message.startsWith('#')) return;
 
       const isEccdri = (user.username.toLowerCase() === 'eccdri');
       if (!isEccdri) {
